@@ -1,6 +1,6 @@
 /* [主体参数] */
 // 主体长度
-plate_length = 3700;
+plate_length = 3800;
 // 主体宽度
 plate_width = 2670;
 // 主体高度
@@ -8,7 +8,7 @@ plate_thickness = 500;
 
 /* [泳池参数] */
 // 泳池长度
-pool_length = 2200;
+pool_length = 2000;
 // 泳池宽度
 pool_width = 1940;
 // 泳池深度
@@ -34,6 +34,13 @@ stub_wall_height = 300;
 
 // 外侧倒角墙下侧高度
 outer_wall_height = 300;
+
+/* [楼梯参数] */
+// 门底部到地板的距离 (450mm)
+door_bottom_height = 450 - 90;
+// 每级台阶高度 (总高度除以3级)
+step_height = door_bottom_height / 3; // 150mm per step
+step_depth = 300; // 每级台阶深度
 
 
 /* [计算参数] */
@@ -92,7 +99,7 @@ module floor_with_pool() {
 module wall_with_door() {
     door_width = 600; // 定义门洞的宽度
     door_height = total_height - plate_thickness; // 门洞高度与墙同高
-    door_offset = 300;
+    door_offset = 150 + wall_thickness; // 修改为从墙角开始偏移50单位加上墙体厚度
 
     difference() {
         // 墙壁主体
@@ -100,16 +107,16 @@ module wall_with_door() {
             cube([wall_thickness, 1400, total_height]);
         }
 
-        // 挖门洞：居中并在高度上完全穿透
+        // 挖门洞：从墙角偏移50单位
         translate([
                 plate_length,
-                door_offset + wall_thickness, // Y轴居中
+                door_offset, // Y轴从墙角偏移50单位
                 plate_thickness  + 450// 从地面开始
             ]) {
             cube([
                 wall_thickness,
                 door_width,
-                1000 // 使用与墙同高的门洞
+                1200 // 使用与墙同高的门洞
                 ]);
         }
 
@@ -134,11 +141,35 @@ module wall_with_door() {
 
 // 楼梯
 module steps() {
-    steps_width = 100;
-
-    // translate([plate_length - steps_width, wall_thickness, plate_thickness])
-        // cube([100, steps_width, 150]);
+    // 计算门到泳池距离和楼梯尺寸
+    door_to_pool_distance = plate_length - pool_x_end; // 门到泳池的距离 (800mm)
+    steps_total_size = door_to_pool_distance * 0.78; // 楼梯总长度 (600mm) - 保持原来的长度计算
+    door_width = 600; // 门的宽度
     
+    // 定义三级台阶的宽度（Y方向），保持长度（X方向）按原来的逻辑递减
+    step_width_1 = door_width + 450; // 第一级台阶（最低级，最大）
+    step_width_2 = door_width + 300;  // 第二级台阶（中间级）
+    step_width_3 = door_width + 150; // 第三级台阶（最高级）- 与门宽度对齐
+    
+    // 墙角重合点（东南角的内侧角点）
+    corner_x = plate_length; // 右墙内侧
+    corner_y = 0; // 下墙内侧
+    
+    translate([wall_thickness, wall_thickness, plate_thickness]) {
+        // 三个楼梯台阶，东南角重合在同一个墙角点
+        
+        // 第一级台阶（最低级，最大）- 角点对齐墙角
+        translate([corner_x - steps_total_size, corner_y, 0])
+            cube([steps_total_size, step_width_1, step_height * 1]);
+        
+        // 第二级台阶（中间级）- 角点与第一级相同，但尺寸更小
+        translate([corner_x - steps_total_size * 0.75, corner_y, 0])
+            cube([steps_total_size * 0.75, step_width_2, step_height * 2]);
+        
+        // 第三级台阶（最高级，最小）- 角点与前两级相同，宽度与门对齐
+        translate([corner_x - steps_total_size * 0.5, corner_y, 0])
+            cube([steps_total_size * 0.5, step_width_3, step_height * 3]);
+    }
 }
 
 module wall_inner() {
@@ -157,8 +188,8 @@ module wall_inner() {
         }
 
         // 新增：窗户挖空
-        translate([pool_length - 400, -0.1, plate_thickness + 1000])
-            cube([500, 100.2, 800]);
+        translate([pool_length, -0.1, plate_thickness + 1000])
+            cube([600, 100.2, 800]);
     }
 }
 
@@ -230,11 +261,11 @@ module outer_wall() {
     translate([0, plate_width + wall_thickness, 0]) {
         cube([plate_length + wall_thickness, wall_thickness * 3, outer_wall_height]);
     }
-    
+
     // difference() {
     //     translate([0, plate_width + wall_thickness, outer_wall_height]) {
     //         cube([plate_length + wall_thickness, wall_thickness * 3, plate_thickness + stub_wall_height - outer_wall_height]);
-    //     }               
+    //     }
     // }
 
     translate([plate_length + wall_thickness, plate_width + wall_thickness * 4, outer_wall_height]) {
@@ -252,10 +283,15 @@ module outer_wall() {
     }
 }
 
+module main() {
+    wall_with_door();
+    wall_inner();
+    floor_with_pool();
+    steps();
+    stub_wall();
+    outer_wall();
+}
 
-wall_with_door();
-wall_inner();
-floor_with_pool();
-steps();
-stub_wall();
-outer_wall();
+scale([0.1, 0.1, 0.1]) {
+    main();
+}
